@@ -114,7 +114,7 @@ function RouteComponent() {
 	// MARK: - UI
 
 	return (
-		<div className="bg-base-0 flex h-screen w-[300px] flex-col">
+		<div className="menubar-page bg-base-0 flex h-screen w-[300px] flex-col">
 			<WindowHeader />
 
 			<div className="flex flex-1 flex-col overflow-y-auto px-4 py-6">

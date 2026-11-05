@@ -1,20 +1,10 @@
 import { isBreakSession, type TProgressivePomodoroCx, type TSessionStartInput } from '@repo/ui';
-import { createState } from 'feature-state';
 import { specta } from '@/environment';
 import { toTuple } from '@/lib';
 import { BaseTimerCx } from './BaseTimerCx';
 
 export class ProgressivePomodoroTimerCx extends BaseTimerCx implements TProgressivePomodoroCx {
 	public readonly mode = 'progressive' as const;
-
-	// Tracks the duration for the next work session (used when break ends → advance to work).
-	private readonly $currentWorkDuration = createState<number>(0);
-
-	protected override applyTimerUpdate(timer: specta.TimerDto): void {
-		const prevOvertime = this.$overtimeSeconds.get();
-		super.applyTimerUpdate(timer);
-		this._checkAutoAdvance(prevOvertime, timer.overtimeSeconds);
-	}
 
 	public async start(input?: TSessionStartInput): Promise<void> {
 		const s = this._settingsCx.$appSettings.get();
@@ -44,50 +34,38 @@ export class ProgressivePomodoroTimerCx extends BaseTimerCx implements TProgress
 			return;
 		}
 
-		await this._advanceSession('Work', this.$currentWorkDuration.get(), input);
+		await this._advanceSession('Work', this._nextWorkSeconds, input);
 	}
 
 	public async advanceWithSuggestion(
 		workSeconds: number,
 		breakSeconds: number | null
 	): Promise<void> {
-		this.$currentWorkDuration.set(workSeconds);
 		if (breakSeconds != null) {
-			await this._advanceSession('Break', breakSeconds);
+			await this._advanceSession('Break', breakSeconds, undefined, workSeconds);
 		} else {
-			await this._advanceSession('Work', workSeconds);
+			await this._advanceSession('Work', workSeconds, undefined, workSeconds);
 		}
 	}
 
 	private async _advanceSession(
 		sessionType: specta.ProgressiveSessionType,
 		durationSeconds: number,
-		input?: TSessionStartInput
+		input?: TSessionStartInput,
+		nextWorkSeconds?: number
 	): Promise<void> {
 		const [ok, , err] = toTuple(
 			await specta.commands.advanceProgressiveTimer(
 				sessionType,
 				durationSeconds,
-				this._toSessionStartInput(input)
+				this._toSessionStartInput(input),
+				nextWorkSeconds ?? null
 			)
 		);
 		if (ok) {
 			this.$startedAt.set(sessionType === 'Work' ? new Date() : null);
 		} else {
 			console.error('Failed to start next progressive session:', err);
-		}
-	}
-
-	private _checkAutoAdvance(prevOvertime: number, currentOvertime: number): void {
-		if (!this._enableSideEffects || currentOvertime === 0) return;
-		const { autoAdvance, autoAdvanceCountdownSeconds } =
-			this._settingsCx.$appSettings.get().timer.progressive;
-		if (!autoAdvance) return;
-		if (
-			prevOvertime < autoAdvanceCountdownSeconds &&
-			currentOvertime >= autoAdvanceCountdownSeconds
-		) {
-			void this.advance();
 		}
 	}
 }

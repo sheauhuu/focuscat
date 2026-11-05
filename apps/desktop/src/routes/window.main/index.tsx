@@ -1,9 +1,12 @@
 import {
+	Button,
 	Cat,
 	catConfig,
+	cn,
 	HistoryIcon,
 	IconButton,
 	MinimizeIcon,
+	PowerIcon,
 	SettingsIcon,
 	ShuffleIcon,
 	TCatFace,
@@ -16,8 +19,10 @@ import { useFeatureState, useListener } from 'feature-react/state';
 import React from 'react';
 import { WindowHeader } from '@/components';
 import { specta } from '@/environment';
+import { KeepAwakeButton } from '@/features/keep-awake';
 import { useSettingsCx } from '@/features/settings';
 import { useTimerViewCx } from '@/features/timer';
+import { isMenubarWindow } from '@/lib';
 import { OverviewCard } from './components';
 
 export const Route = createFileRoute('/window/main/')({
@@ -25,6 +30,7 @@ export const Route = createFileRoute('/window/main/')({
 });
 
 function RouteComponent() {
+	const isMenubar = isMenubarWindow();
 	const catRef = React.useRef<TCatRef>(null);
 
 	const settingsCx = useSettingsCx();
@@ -54,6 +60,16 @@ function RouteComponent() {
 
 	const handleActivity = React.useCallback(async () => {
 		await specta.commands.showActivityWindow();
+	}, []);
+
+	const handleShowApp = React.useCallback(async () => {
+		await specta.commands.hideMenubar();
+		await specta.commands.hideCatWindow();
+		await specta.commands.showMainWindow();
+	}, []);
+
+	const handleQuit = React.useCallback(async () => {
+		await specta.commands.quitApp();
 	}, []);
 
 	const handleRandomize = React.useCallback(() => {
@@ -104,28 +120,38 @@ function RouteComponent() {
 	// MARK: - UI
 
 	return (
-		<div className="bg-base-0 flex h-screen w-[300px] flex-col">
-			<WindowHeader>
-				{settings.features.catWindow && (
-					<IconButton
-						variant="bare"
-						size="sm"
-						onClick={handleMinimize}
-						aria-label="Minimize to cat widget"
-					>
-						<MinimizeIcon className="size-4" />
+		<div
+			className={cn('menubar-page bg-base-0 flex h-screen w-[300px] flex-col', isMenubar && 'pt-1')}
+		>
+			{!isMenubar && (
+				<WindowHeader>
+					{settings.features.catWindow && (
+						<IconButton
+							variant="bare"
+							size="sm"
+							onClick={handleMinimize}
+							aria-label="Minimize to cat widget"
+						>
+							<MinimizeIcon className="size-4" />
+						</IconButton>
+					)}
+					<div className="flex-1" />
+					<KeepAwakeButton />
+					{settings.features.activity && (
+						<IconButton
+							variant="bare"
+							size="sm"
+							onClick={handleActivity}
+							aria-label="View activity"
+						>
+							<HistoryIcon className="size-4" />
+						</IconButton>
+					)}
+					<IconButton variant="bare" size="sm" onClick={handleSettings} aria-label="Open settings">
+						<SettingsIcon className="size-4" />
 					</IconButton>
-				)}
-				<div className="flex-1" />
-				{settings.features.activity && (
-					<IconButton variant="bare" size="sm" onClick={handleActivity} aria-label="View activity">
-						<HistoryIcon className="size-4" />
-					</IconButton>
-				)}
-				<IconButton variant="bare" size="sm" onClick={handleSettings} aria-label="Open settings">
-					<SettingsIcon className="size-4" />
-				</IconButton>
-			</WindowHeader>
+				</WindowHeader>
+			)}
 
 			{/* Top section: Overview + Cat */}
 			<div className="flex shrink-0" style={{ height: topSection.height }}>
@@ -153,7 +179,50 @@ function RouteComponent() {
 			</div>
 
 			{/* Timer */}
-			<TimerView cx={timerViewCx} className="flex-1" />
+			<TimerView
+				cx={timerViewCx}
+				layout={isMenubar ? 'content' : 'fill'}
+				className={cn('flex-1', isMenubar && 'min-h-0 overflow-y-auto')}
+			/>
+			{isMenubar && (
+				<footer className="border-base-200 flex h-9 shrink-0 items-center justify-between border-t px-2 [&_button]:text-xs">
+					<Button variant="ghost" size="sm" onClick={handleShowApp}>
+						Show App
+					</Button>
+					<div className="flex items-center">
+						<KeepAwakeButton variant="ghost" />
+						{settings.features.activity && (
+							<IconButton
+								variant="ghost"
+								size="sm"
+								onClick={handleActivity}
+								aria-label="History"
+								title="History"
+							>
+								<HistoryIcon className="size-4" />
+							</IconButton>
+						)}
+						<IconButton
+							variant="ghost"
+							size="sm"
+							onClick={handleSettings}
+							aria-label="Settings"
+							title="Settings"
+						>
+							<SettingsIcon className="size-4" />
+						</IconButton>
+						<IconButton
+							variant="ghost"
+							size="sm"
+							onClick={handleQuit}
+							aria-label="Quit"
+							title="Quit"
+						>
+							<PowerIcon className="size-4" />
+						</IconButton>
+					</div>
+				</footer>
+			)}
 		</div>
 	);
 }

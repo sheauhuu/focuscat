@@ -64,16 +64,13 @@ export const TimeDial: React.FC<TTimeDialProps> = (props) => {
 	return (
 		<div className="relative ml-2 flex-1">
 			<TimeWheel
+				className="[mask-image:linear-gradient(to_right,transparent,black_4rem,black_calc(100%_-_4rem),transparent)]"
 				value={value}
 				smooth={smooth}
 				onDragStart={handleDragStart}
 				onDragMove={handleDragMove}
 				onDragEnd={handleDragEnd}
 			/>
-
-			{/* Edge fades */}
-			<div className="from-base-0 pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-linear-to-r to-transparent" />
-			<div className="from-base-0 pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-linear-to-l to-transparent" />
 
 			{/* Center indicator */}
 			<div className="pointer-events-none absolute inset-x-0 top-px z-30 flex justify-center">

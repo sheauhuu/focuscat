@@ -3,6 +3,30 @@
 
 @source '../node_modules/@repo/ui';
 
+html[data-surface='menubar'] {
+	--font-sans: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+	--color-base-50: rgb(255 255 255 / 20%);
+	--color-base-100: rgb(255 255 255 / 35%);
+	--color-base-200: rgb(60 60 67 / 14%);
+	--color-base-300: rgb(60 60 67 / 25%);
+	--color-base-400: #73737a;
+	color-scheme: light;
+	background: transparent;
+}
+
+html[data-surface='menubar'].dark {
+	--color-base-50: rgb(255 255 255 / 4%);
+	--color-base-100: rgb(255 255 255 / 8%);
+	--color-base-200: rgb(255 255 255 / 12%);
+	--color-base-300: rgb(255 255 255 / 22%);
+	--color-base-400: #a8a8b0;
+	color-scheme: dark;
+}
+
+html[data-surface='menubar'] .menubar-page {
+	background: transparent;
+}
+
 @layer base {
 	body {
 		-webkit-font-smoothing: antialiased;

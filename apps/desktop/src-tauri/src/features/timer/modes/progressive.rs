@@ -30,7 +30,7 @@ impl ProgressivePomodoroMode {
         );
     }
 
-    /// Progressive session transitions are driven by the TypeScript cx (via start_next_session).
+    /// Progressive work durations come from the user's rating, stored by the timer commands.
     pub fn next_session(
         &self,
         _current: SessionType,

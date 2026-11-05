@@ -21,11 +21,10 @@ export const PomodoroTimerDial: React.FC<TProps> = (props) => {
 
 			{/* Session wheel */}
 			<div className="relative mr-2">
-				<SessionWheel cx={cx} />
-
-				{/* Edge fades */}
-				<div className="from-base-0 pointer-events-none absolute inset-x-0 top-px z-10 h-6 bg-linear-to-b to-transparent" />
-				<div className="from-base-0 pointer-events-none absolute inset-x-0 bottom-px z-10 h-6 bg-linear-to-t to-transparent" />
+				<SessionWheel
+					cx={cx}
+					className="[mask-image:linear-gradient(to_bottom,transparent,black_1.5rem,black_calc(100%_-_1.5rem),transparent)]"
+				/>
 
 				{/* Center indicator */}
 				<div className="pointer-events-none absolute inset-y-0 left-0 z-30 flex items-center">

@@ -8,6 +8,8 @@
 		<script>
 			// Prevent white flash on window open (CSS not loaded yet)
 			(() => {
+				const isMenubar = window.__FOCUSCAT_SURFACE__ === 'menubar';
+				if (isMenubar) document.documentElement.dataset.surface = 'menubar';
 				// Window-specific background styles (checked in order, first match wins)
 				const windowStyles = [
 					{ path: '/window/cat', transparent: true },
@@ -34,9 +36,9 @@
 						window.matchMedia('(prefers-color-scheme: dark)').matches);
 				if (isDark) {
 					document.documentElement.classList.add('dark');
-					document.documentElement.style.backgroundColor = '#09090b';
+					if (!isMenubar) document.documentElement.style.backgroundColor = '#09090b';
 				} else {
-					document.documentElement.style.backgroundColor = '#ffffff';
+					if (!isMenubar) document.documentElement.style.backgroundColor = '#ffffff';
 				}
 			})();
 		</script>

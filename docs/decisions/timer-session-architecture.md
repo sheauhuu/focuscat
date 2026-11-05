@@ -34,6 +34,12 @@ Mode-specific logic (what to start with, what comes next, how long) is isolated 
 
 Adding a new mode = implement the trait + add `SessionType` variants. No changes to session, runner, or shared timer logic.
 
+## Window Independence
+
+The Rust runner evaluates automatic advancement. Transitions that need no input use the timer commands; transitions that require session setup or a progressive rating open that flow on the active presentation surface. React windows subscribe to timer state and send user commands. Automatic advancement does not depend on a hidden main WebView.
+
+The Rust timer also stores the selected duration for the next progressive work session. The duration survives switches between the full, compact, and menu bar views. See [macOS Menu Bar Presentation](./macos-menubar-presentation.md).
+
 ## Why Timer → Session (not the reverse)
 
 - **Causality**: Timer starts → session is created. Timer completes → session is completed. The runtime drives the record.

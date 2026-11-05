@@ -46,11 +46,13 @@ pub enum SettingsVersion {
     V0_0_2,
     #[serde(rename = "0.0.3")]
     V0_0_3,
+    #[serde(rename = "0.0.4")]
+    V0_0_4,
 }
 
 impl SettingsVersion {
     pub fn current() -> Self {
-        return Self::V0_0_3;
+        return Self::V0_0_4;
     }
 }
 

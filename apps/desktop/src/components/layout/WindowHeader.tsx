@@ -1,10 +1,12 @@
 import { Badge, cn, RefreshCcwIcon } from '@repo/ui';
 import React from 'react';
 import { useAppInfo, usePlatform, useUpdateChecker } from '@/hooks';
+import { isMenubarWindow } from '@/lib';
 
 export const WindowHeader: React.FC<TWindowHeaderProps> = (props) => {
 	const { title, showBadge = true, children, className } = props;
 	const platform = usePlatform();
+	const isMenubar = isMenubarWindow();
 	const appInfo = useAppInfo();
 	const { updateAvailable, updateInfo, installing, install } = useUpdateChecker();
 
@@ -14,10 +16,10 @@ export const WindowHeader: React.FC<TWindowHeaderProps> = (props) => {
 
 	return (
 		<header
-			data-tauri-drag-region
+			data-tauri-drag-region={isMenubar ? undefined : true}
 			className={cn(
 				'border-base-200 bg-base-50 flex h-8 shrink-0 items-center border-b select-none',
-				platform === 'macos' ? 'pl-[70px]' : 'pl-2',
+				platform === 'macos' && !isMenubar ? 'pl-[70px]' : 'pl-2',
 				className
 			)}
 		>
@@ -50,7 +52,7 @@ export const WindowHeader: React.FC<TWindowHeaderProps> = (props) => {
 					<RefreshCcwIcon size={12} className={installing ? 'animate-spin' : undefined} />
 				</Badge>
 			)}
-			<div data-tauri-drag-region className="flex-1" />
+			<div data-tauri-drag-region={isMenubar ? undefined : true} className="flex-1" />
 			{children != null && <div className="flex items-center gap-0.5 pr-1">{children}</div>}
 		</header>
 	);

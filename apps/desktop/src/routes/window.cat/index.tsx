@@ -141,6 +141,7 @@ function RouteComponent() {
 				<Button
 					className="text-base-400 hover:text-base-950 flex items-center px-2 py-2 transition-colors"
 					onClick={handleExpand}
+					aria-label="Open main window"
 				>
 					<ExpandIcon className="size-3.5" />
 				</Button>

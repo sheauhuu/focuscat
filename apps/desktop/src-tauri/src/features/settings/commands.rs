@@ -33,11 +33,9 @@ pub fn set_settings(
         (guard.launch_at_login, guard.timer.clone())
     };
 
-    // Update in-memory state
-    *state.lock().unwrap() = settings.clone();
-
-    // Persist to disk
+    // Persist before publishing the new settings
     persistence::save_settings(&app, &settings)?;
+    *state.lock().unwrap() = settings.clone();
 
     // Apply new autostart setting
     if prev_launch_at_login != settings.launch_at_login {
@@ -98,11 +96,7 @@ pub async fn clear_history(db: State<'_, DatabaseState>) -> Result<(), String> {
 #[tauri::command]
 #[specta::specta]
 pub fn reset_settings(app: AppHandle, state: State<'_, AppSettingsState>) -> Result<(), String> {
-    let defaults = AppSettings::default();
-    *state.lock().unwrap() = defaults.clone();
-    persistence::save_settings(&app, &defaults)?;
-    let _ = AppSettingsChangedEvent(defaults).emit(&app);
-    return Ok(());
+    return set_settings(app, state, AppSettings::default());
 }
 
 #[tauri::command]

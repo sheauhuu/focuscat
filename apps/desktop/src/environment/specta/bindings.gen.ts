@@ -18,8 +18,12 @@ export const commands = {
 	hideCatWindow: () => typedError<null, string>(__TAURI_INVOKE("hide_cat_window")),
 	hideSettingsWindow: () => typedError<null, string>(__TAURI_INVOKE("hide_settings_window")),
 	navigateSettingsWindowToPath: (path: string) => typedError<null, string>(__TAURI_INVOKE("navigate_settings_window_to_path", { path })),
+	showMenubarAtPath: (path: string) => typedError<null, string>(__TAURI_INVOKE("show_menubar_at_path", { path })),
+	hideMenubar: () => __TAURI_INVOKE<void>("hide_menubar"),
 	restartApp: () => __TAURI_INVOKE<void>("restart_app"),
 	quitApp: () => __TAURI_INVOKE<void>("quit_app"),
+	getKeepAwake: () => __TAURI_INVOKE<boolean>("get_keep_awake"),
+	setKeepAwake: (enabled: boolean) => typedError<null, string>(__TAURI_INVOKE("set_keep_awake", { enabled })),
 	installUpdate: () => typedError<null, string>(__TAURI_INVOKE("install_update")),
 	getSettings: () => __TAURI_INVOKE<AppSettings>("get_settings"),
 	setSettings: (settings: AppSettings) => typedError<null, string>(__TAURI_INVOKE("set_settings", { settings })),
@@ -50,7 +54,7 @@ export const commands = {
 	intention?: string | null,
 	profileIds?: number[] | null,
 	blockThreshold?: BlockThreshold | null,
-} | null) => typedError<null, string>(__TAURI_INVOKE("advance_progressive_timer", { sessionType, durationSeconds, input })),
+} | null, nextWorkSeconds: number | null) => typedError<null, string>(__TAURI_INVOKE("advance_progressive_timer", { sessionType, durationSeconds, input, nextWorkSeconds })),
 	/**
 	 *  Complete the current session and reset timer.
 	 *  Like reset, but marks session as completed instead of cancelled.
@@ -149,6 +153,7 @@ export const events = {
 	blockingViolationEvent: makeEvent<BlockingViolationEvent>("blocking-violation-event"),
 	currentActivityEvent: makeEvent<CurrentActivityEvent>("current-activity-event"),
 	inputDetectedEvent: makeEvent<InputDetectedEvent>("input-detected-event"),
+	keepAwakeChangedEvent: makeEvent<KeepAwakeChangedEvent>("keep-awake-changed-event"),
 	profileChangedEvent: makeEvent<ProfileChangedEvent>("profile-changed-event"),
 	sessionChangedEvent: makeEvent<SessionChangedEvent>("session-changed-event"),
 	sessionCompletedEvent: makeEvent<SessionCompletedEvent>("session-completed-event"),
@@ -272,16 +277,18 @@ export type BrowserInfo = {
 	/**
 	 *  Bounds of the visible browser content area, when exposed by Accessibility.
 	 * 
-	 *  This is the visible web content viewport, not the full browser window,
-	 *  and may be `None` when the browser does not expose it.
+	 *  Uses the top-level web content frame clipped to the browser window.
+	 *  Browser Accessibility data may not describe the exact viewport or may be unavailable.
 	 */
 	contentBounds: WindowBounds | null,
 	/**
-	 *  Whether the window is in private/incognito mode.
+	 *  Estimates private/incognito mode from recognized window-title patterns.
 	 * 
-	 *  - `None` if detection failed or not supported
-	 *  - `Some(true)` if private mode is active
-	 *  - `Some(false)` if private mode is not active
+	 *  - `None` when no usable title is available
+	 *  - `Some(true)` when the title contains a recognized private-mode indicator
+	 *  - `Some(false)` when no indicator matches, which does not prove normal browsing
+	 * 
+	 *  Browser versions and localized titles can affect this heuristic.
 	 */
 	isPrivate: boolean | null,
 	/**  Website information (only populated if `include_website_info` is enabled in config) */
@@ -407,6 +414,8 @@ export type InputDetectedEvent = InputType;
 /**  Type of input event detected. */
 export type InputType = "keyboard" | "mouse";
 
+export type KeepAwakeChangedEvent = boolean;
+
 export type PomodoroSettings = {
 	workDurationMinutes: number,
 	shortBreakMinutes: number,
@@ -527,7 +536,7 @@ export type SessionSummaryDto = {
 	endedAt: number | null,
 };
 
-export type SettingsVersion = "0.0.1" | "0.0.2" | "0.0.3";
+export type SettingsVersion = "0.0.1" | "0.0.2" | "0.0.3" | "0.0.4";
 
 export type SoundId = "tick" | "complete" | "meow" | "wind-up-tick-1" | "wind-up-tick-2" | "wind-up-tick-3" | "wind-up-tick-4" | "wind-up-tick-5" | "wind-up-tick-6" | "wind-up-tick-7" | "wind-up-tick-8" | "wind-up-tick-9" | "wind-up-tick-10" | "wind-up-tick-11";
 
@@ -542,6 +551,7 @@ export type TimerDto = {
 	remainingSeconds: number,
 	overtimeSeconds: number,
 	sessionsCompleted: number,
+	nextWorkSeconds: number,
 };
 
 export type TimerModeEnum = "pomodoro" | "progressive" | "countdown";
@@ -623,7 +633,10 @@ export type WindowInfo = {
 	bounds: WindowBounds | null,
 	/**  Application information */
 	app: AppInfo,
-	/**  Browser information (only populated if `include_browser_info` is enabled in config) */
+	/**
+	 *  Browser metadata when enabled and a supported browser exposes a readable URL.
+	 *  Missing metadata does not imply navigation or a non-browser window.
+	 */
 	browser: BrowserInfo | null,
 };
 

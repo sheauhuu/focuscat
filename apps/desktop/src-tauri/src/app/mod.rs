@@ -1,4 +1,8 @@
 mod commands;
+#[cfg(target_os = "macos")]
+pub mod menubar;
+pub mod presentation;
+#[cfg(target_os = "macos")]
 pub mod tray;
 pub mod window;
 
@@ -11,6 +15,7 @@ use crate::features::{
     blocking::types::BlockingViolationEvent,
     focus_profile::{self, types::ProfileChangedEvent},
     input::{self, types::InputDetectedEvent},
+    keep_awake::{self, types::KeepAwakeChangedEvent},
     permission,
     session::{
         self,
@@ -30,8 +35,8 @@ use tauri::Manager;
 use tauri_plugin_autostart::MacosLauncher;
 use tauri_specta::{collect_commands, collect_events, Builder};
 
-pub fn run() {
-    let builder = Builder::<tauri::Wry>::new()
+fn bindings() -> Builder<tauri::Wry> {
+    return Builder::<tauri::Wry>::new()
         .commands(collect_commands![
             // App commands
             commands::get_app_info,
@@ -48,8 +53,13 @@ pub fn run() {
             commands::hide_cat_window,
             commands::hide_settings_window,
             commands::navigate_settings_window_to_path,
+            commands::show_menubar_at_path,
+            commands::hide_menubar,
             commands::restart_app,
             commands::quit_app,
+            // Keep awake commands
+            keep_awake::commands::get_keep_awake,
+            keep_awake::commands::set_keep_awake,
             // Updater commands
             updater::commands::install_update,
             // Settings commands
@@ -102,6 +112,7 @@ pub fn run() {
         .events(collect_events![
             // Settings events
             AppSettingsChangedEvent,
+            KeepAwakeChangedEvent,
             // Timer events
             TimerUpdatedEvent,
             // Session events
@@ -118,6 +129,10 @@ pub fn run() {
             // Updater
             UpdateAvailableEvent,
         ]);
+}
+
+pub fn run() {
+    let builder = bindings();
 
     #[cfg(debug_assertions)]
     if let Err(e) = builder.export(
@@ -134,6 +149,8 @@ pub fn run() {
             MacosLauncher::LaunchAgent,
             None,
         ));
+    #[cfg(target_os = "macos")]
+    let tauri_builder = tauri_builder.plugin(tauri_nspanel::init());
     #[cfg(all(desktop, not(feature = "app-store"), not(debug_assertions)))]
     let tauri_builder = tauri_builder.plugin(tauri_plugin_updater::Builder::new().build());
 
@@ -148,6 +165,7 @@ pub fn run() {
             audio::setup(app);
             session::setup(app);
             settings::setup(app);
+            keep_awake::setup(app);
             timer::setup(app);
             input::setup(app);
             focus_profile::setup(app);
@@ -155,7 +173,7 @@ pub fn run() {
             activity_window::setup(app);
             app_feature::setup(app);
             #[cfg(target_os = "macos")]
-            tray::setup(app);
+            tray::setup(app)?;
             #[cfg(all(desktop, not(feature = "app-store"), not(debug_assertions)))]
             updater::setup(app.handle());
 
@@ -165,8 +183,9 @@ pub fn run() {
                 autostart::apply(app.handle(), enabled);
             }
 
-            // Show main window on startup
-            let _ = window::Window::Main.show(app.handle());
+            #[cfg(target_os = "macos")]
+            menubar::prepare(app.handle())?;
+            window::Window::Main.show(app.handle())?;
 
             return Ok(());
         })
@@ -182,4 +201,17 @@ pub fn run() {
                 session::exit(app_handle);
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    #[ignore = "Regenerates the frontend command and event bindings"]
+    fn export_typescript_bindings() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../src/environment/specta/bindings.gen.ts");
+        super::bindings()
+            .export(specta_typescript::Typescript::default(), path)
+            .expect("TypeScript bindings should export");
+    }
 }

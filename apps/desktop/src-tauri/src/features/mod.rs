@@ -5,6 +5,7 @@ pub mod autostart;
 pub mod blocking;
 pub mod focus_profile;
 pub mod input;
+pub mod keep_awake;
 pub mod permission;
 pub mod session;
 pub mod settings;

@@ -1,8 +1,21 @@
 #[cfg(target_os = "macos")]
 mod ffi;
+mod keep_awake;
+
+pub use keep_awake::{DisplaySleepAssertion, KeepAwakeError};
 
 #[cfg(target_os = "macos")]
 use ffi::*;
+
+/// Adds the system glass material behind a menu bar window's existing content.
+///
+/// # Safety
+///
+/// `window` must point to a live `NSWindow`. Call on the macOS main thread.
+#[cfg(target_os = "macos")]
+pub unsafe fn apply_menubar_material(window: *mut std::ffi::c_void, corner_radius: f64) -> bool {
+    return unsafe { macos_apply_menubar_material(window, corner_radius) };
+}
 
 /// Check if input monitoring permission is granted.
 ///

@@ -325,6 +325,7 @@ pub async fn advance_pomodoro_timer(
         next_session_type,
         next_duration_seconds,
         input.unwrap_or_default(),
+        None,
         now,
     )
     .await
@@ -342,6 +343,7 @@ pub async fn advance_progressive_timer(
     session_type: ProgressiveSessionType,
     duration_seconds: u32,
     input: Option<SessionStartInput>,
+    next_work_seconds: Option<u32>,
 ) -> Result<(), String> {
     let now = Utc::now().timestamp_millis();
 
@@ -377,6 +379,7 @@ pub async fn advance_progressive_timer(
         next_session_type,
         duration_seconds,
         input.unwrap_or_default(),
+        next_work_seconds,
         now,
     )
     .await
@@ -409,6 +412,7 @@ async fn do_advance(
     next_session_type: SessionType,
     next_duration_seconds: u32,
     input: SessionStartInput,
+    next_work_seconds: Option<u32>,
     now: i64,
 ) -> Result<(), String> {
     let is_work = current_session_type.is_work();
@@ -457,6 +461,9 @@ async fn do_advance(
     let timer = {
         let mut timer = state.lock().unwrap();
         timer.advance_to_session(new_session, next_duration_seconds, is_work, now);
+        if let Some(seconds) = next_work_seconds {
+            timer.next_work_seconds = seconds;
+        }
         timer.clone()
     };
 

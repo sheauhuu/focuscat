@@ -79,7 +79,8 @@ fn migrate_value_one_step(value: &mut Value) {
     match version_from_value(value) {
         SettingsVersion::V0_0_1 => migrate_v0_0_1_to_v0_0_2(value),
         SettingsVersion::V0_0_2 => migrate_v0_0_2_to_v0_0_3(value),
-        SettingsVersion::V0_0_3 => {}
+        SettingsVersion::V0_0_3 => migrate_v0_0_3_to_v0_0_4(value),
+        SettingsVersion::V0_0_4 => {}
     }
 }
 
@@ -130,6 +131,13 @@ fn merge_missing_defaults(value: &mut Value, defaults: &Value) {
     }
 }
 
+fn migrate_v0_0_3_to_v0_0_4(value: &mut Value) {
+    if let Some(settings) = value.as_object_mut() {
+        settings.remove("window");
+    }
+    value["version"] = serde_json::json!("0.0.4");
+}
+
 #[cfg(test)]
 mod tests {
     use super::{migrate_value_one_step, version_from_value};
@@ -176,5 +184,22 @@ mod tests {
         assert_eq!(value["features"]["activity"], json!(true));
         serde_json::from_value::<AppSettings>(value)
             .expect("migrated settings should satisfy the required schema");
+    }
+
+    #[test]
+    fn removes_obsolete_window_preferences_without_changing_other_settings() {
+        let mut value = serde_json::to_value(AppSettings::default()).unwrap();
+        value["version"] = json!("0.0.3");
+        value["window"] = json!({ "mode": "menubar", "menubarView": "compact" });
+        value["appearance"]["theme"] = json!("dark");
+
+        migrate_value_one_step(&mut value);
+
+        assert!(value.get("window").is_none());
+        let settings = serde_json::from_value::<AppSettings>(value).unwrap();
+        assert_eq!(settings.version, SettingsVersion::current());
+        assert_eq!(settings.appearance.theme, Theme::Dark);
+        let serialized = serde_json::to_value(settings).unwrap();
+        assert!(serialized.get("window").is_none());
     }
 }

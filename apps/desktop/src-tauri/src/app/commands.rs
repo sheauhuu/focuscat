@@ -88,7 +88,8 @@ pub fn hide_cat_window(app: tauri::AppHandle) -> Result<(), String> {
 #[tauri::command]
 #[specta::specta]
 pub fn show_settings_window(app: tauri::AppHandle) -> Result<(), String> {
-    Window::Main.hide(&app).map_err(|e| e.to_string())?;
+    #[cfg(target_os = "macos")]
+    super::menubar::hide(&app);
     Window::Settings.show(&app).map_err(|e| e.to_string())?;
     return Ok(());
 }
@@ -96,7 +97,8 @@ pub fn show_settings_window(app: tauri::AppHandle) -> Result<(), String> {
 #[tauri::command]
 #[specta::specta]
 pub fn show_settings_window_at_path(app: tauri::AppHandle, path: String) -> Result<(), String> {
-    Window::Main.hide(&app).map_err(|e| e.to_string())?;
+    #[cfg(target_os = "macos")]
+    super::menubar::hide(&app);
     Window::Settings
         .show_at_path(&app, &path)
         .map_err(|e| e.to_string())?;
@@ -122,7 +124,8 @@ pub fn navigate_settings_window_to_path(app: tauri::AppHandle, path: String) -> 
 #[tauri::command]
 #[specta::specta]
 pub fn show_activity_window(app: tauri::AppHandle) -> Result<(), String> {
-    Window::Main.hide(&app).map_err(|e| e.to_string())?;
+    #[cfg(target_os = "macos")]
+    super::menubar::hide(&app);
     Window::Activity.show(&app).map_err(|e| e.to_string())?;
     return Ok(());
 }
@@ -135,7 +138,8 @@ pub fn show_activity_window_at_session(
 ) -> Result<(), String> {
     let path = format!("/window/activity/{}", session_id);
 
-    Window::Main.hide(&app).map_err(|e| e.to_string())?;
+    #[cfg(target_os = "macos")]
+    super::menubar::hide(&app);
     Window::Activity
         .show_at_path(&app, &path)
         .map_err(|e| e.to_string())?;
@@ -146,6 +150,22 @@ pub fn show_activity_window_at_session(
 #[specta::specta]
 pub fn restart_app(app: tauri::AppHandle) {
     app.restart();
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn show_menubar_at_path(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    return super::menubar::show_at_path(&app, &path);
+    #[cfg(not(target_os = "macos"))]
+    return Err("Menu bar presentation is only available on macOS".into());
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn hide_menubar(app: tauri::AppHandle) {
+    #[cfg(target_os = "macos")]
+    super::menubar::hide(&app);
 }
 
 #[tauri::command]

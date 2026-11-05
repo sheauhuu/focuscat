@@ -1,5 +1,6 @@
 import { specta } from '@/environment';
 import { parseSearchString } from './parse';
+import { isMenubarWindow } from './window';
 
 export function parseFlowReturnSearch(search: Record<string, unknown>): TFlowReturnSearch {
 	const returnTargetKind = parseSearchString(search['returnTargetKind']);
@@ -7,7 +8,7 @@ export function parseFlowReturnSearch(search: Record<string, unknown>): TFlowRet
 		return { returnTargetKind };
 	}
 
-	if (returnTargetKind === 'main') {
+	if (returnTargetKind === 'main' || returnTargetKind === 'menubar') {
 		const returnTargetHref = parseSearchString(search['returnTargetHref']);
 		if (returnTargetHref != null) {
 			return { returnTargetKind, returnTargetHref };
@@ -22,8 +23,11 @@ export function toFlowReturnTarget(search: TFlowReturnSearch): TFlowReturnTarget
 		return { kind: 'cat' };
 	}
 
-	if (search.returnTargetKind === 'main' && search.returnTargetHref != null) {
-		return { kind: 'main', href: search.returnTargetHref };
+	if (
+		(search.returnTargetKind === 'main' || search.returnTargetKind === 'menubar') &&
+		search.returnTargetHref != null
+	) {
+		return { kind: search.returnTargetKind, href: search.returnTargetHref };
 	}
 
 	return undefined;
@@ -39,7 +43,7 @@ export function buildFlowReturnSearch(target?: TFlowReturnTarget): TFlowReturnSe
 	}
 
 	return {
-		returnTargetKind: 'main',
+		returnTargetKind: target.kind,
 		returnTargetHref: target.href
 	};
 }
@@ -81,7 +85,7 @@ export function appendFlowReturnTargetParams(
 	}
 
 	return {
-		kind: 'main',
+		kind: target.kind,
 		href: appendSearchParams(target.href, params)
 	};
 }
@@ -98,7 +102,12 @@ export async function completeFlowReturn(
 		return;
 	}
 
-	await specta.commands.showMainWindowAtPath(target?.href ?? fallbackHref);
+	const href = target?.href ?? fallbackHref;
+	if (target?.kind === 'menubar' || (target == null && isMenubarWindow())) {
+		await specta.commands.showMenubarAtPath(href);
+	} else {
+		await specta.commands.showMainWindowAtPath(href);
+	}
 }
 
 export async function completeFocusSettingsReturn(target: TFlowReturnTarget): Promise<void> {
@@ -109,9 +118,9 @@ export async function completeFocusSettingsReturn(target: TFlowReturnTarget): Pr
 	await completeFlowReturn(target);
 }
 
-export type TFlowReturnTarget = { kind: 'cat' } | { kind: 'main'; href: string };
+export type TFlowReturnTarget = { kind: 'cat' } | { kind: 'main' | 'menubar'; href: string };
 
 export interface TFlowReturnSearch {
-	returnTargetKind?: 'cat' | 'main';
+	returnTargetKind?: 'cat' | 'main' | 'menubar';
 	returnTargetHref?: string;
 }

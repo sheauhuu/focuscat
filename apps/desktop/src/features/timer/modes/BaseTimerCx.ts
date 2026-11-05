@@ -2,18 +2,12 @@ import { type TSessionStartInput } from '@repo/ui';
 import { createState } from 'feature-state';
 import { specta } from '@/environment';
 import { type SettingsCx } from '@/features/settings';
-import { appendFlowReturnSearch, toTuple } from '@/lib';
+import { appendFlowReturnSearch, isMenubarWindow, toTuple } from '@/lib';
 
 export abstract class BaseTimerCx {
-	private _unlisten?: () => void;
-
-	// Async init can finish after unmount (StrictMode/dev remount), so prevent late event subscriptions
-	protected _isDisposed = false;
-	// Only one window should run timer side effects to avoid duplicate side effects
-	protected readonly _enableSideEffects: boolean;
-
 	protected readonly _settingsCx: SettingsCx;
 	protected readonly _windowKind: TTimerWindowKind;
+	protected _nextWorkSeconds = 300;
 
 	public readonly $status = createState<'idle' | 'running' | 'paused'>('idle');
 	public readonly $sessionType = createState('pomodoro:work');
@@ -23,35 +17,42 @@ export abstract class BaseTimerCx {
 	public readonly $sessionsCompleted = createState(0);
 	public readonly $startedAt = createState<Date | null>(null);
 
-	constructor(settingsCx: SettingsCx, enableSideEffects: boolean, windowKind: TTimerWindowKind) {
+	constructor(settingsCx: SettingsCx, windowKind: TTimerWindowKind) {
 		this._settingsCx = settingsCx;
-		this._enableSideEffects = enableSideEffects;
 		this._windowKind = windowKind;
-		this._init();
 	}
 
-	private async _init(): Promise<void> {
-		if (this._isDisposed) return;
-		const timer = await specta.commands.getTimer();
-		if (this._isDisposed) return;
-		this.applyTimerUpdate(timer);
-		const unlisten = await specta.events.timerUpdatedEvent.listen((event) => {
-			if (this._isDisposed) return;
-			this.applyTimerUpdate(event.payload);
-		});
-		if (this._isDisposed) {
-			unlisten();
-			return;
-		}
-		this._unlisten = unlisten;
-	}
-
-	public unmount(): void {
-		this._isDisposed = true;
-		this._unlisten?.();
+	public mount(): () => void {
+		let disposed = false;
+		let receivedUpdate = false;
+		let unlisten: (() => void) | undefined;
+		const initialize = async () => {
+			try {
+				const stopListening = await specta.events.timerUpdatedEvent.listen((event) => {
+					receivedUpdate = true;
+					if (!disposed) this.applyTimerUpdate(event.payload);
+				});
+				if (disposed) {
+					stopListening();
+					return;
+				}
+				unlisten = stopListening;
+				const timer = await specta.commands.getTimer();
+				// Events received during initialization take precedence over the snapshot
+				if (!disposed && !receivedUpdate) this.applyTimerUpdate(timer);
+			} catch (error) {
+				console.error('Failed to initialize timer:', error);
+			}
+		};
+		void initialize();
+		return () => {
+			disposed = true;
+			unlisten?.();
+		};
 	}
 
 	protected applyTimerUpdate(timer: specta.TimerDto): void {
+		this._nextWorkSeconds = timer.nextWorkSeconds;
 		if (this.$status.get() !== timer.status) this.$status.set(timer.status);
 		if (this.$sessionType.get() !== timer.sessionType) this.$sessionType.set(timer.sessionType);
 		if (this.$remainingSeconds.get() !== timer.remainingSeconds)
@@ -113,6 +114,10 @@ export abstract class BaseTimerCx {
 	}
 
 	protected async _showMainFlow(path: string): Promise<void> {
+		if (isMenubarWindow()) {
+			await specta.commands.showMenubarAtPath(path);
+			return;
+		}
 		const nextPath = appendFlowReturnSearch(
 			path,
 			this._windowKind === 'cat' ? { kind: 'cat' } : undefined

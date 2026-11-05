@@ -5,7 +5,13 @@ import React from 'react';
 import { WindowHeader } from '@/components';
 import { specta } from '@/environment';
 import { useSettingsCx } from '@/features/settings';
-import { appendFlowReturnSearch, completeFlowReturn, toTuple, type TFlowReturnTarget } from '@/lib';
+import {
+	appendFlowReturnSearch,
+	completeFlowReturn,
+	isMenubarWindow,
+	toTuple,
+	type TFlowReturnTarget
+} from '@/lib';
 import { AddProfileButton } from './AddProfileButton';
 import { ProfileTag } from './ProfileTag';
 
@@ -25,7 +31,7 @@ export const SessionSetupScreen: React.FC<SessionSetupScreenProps> = (props) => 
 		select: (location) => stripTransientSearchParams(location.href)
 	});
 	const settingsReturnTarget = React.useMemo<TFlowReturnTarget>(
-		() => ({ kind: 'main', href: returnTo }),
+		() => ({ kind: isMenubarWindow() ? 'menubar' : 'main', href: returnTo }),
 		[returnTo]
 	);
 	const settingsCx = useSettingsCx();
@@ -227,7 +233,7 @@ export const SessionSetupScreen: React.FC<SessionSetupScreenProps> = (props) => 
 	// MARK: - UI
 
 	return (
-		<div className="bg-base-0 flex h-screen w-[300px] flex-col">
+		<div className="menubar-page bg-base-0 flex h-screen w-[300px] flex-col">
 			<WindowHeader />
 
 			{/* Scrollable content */}

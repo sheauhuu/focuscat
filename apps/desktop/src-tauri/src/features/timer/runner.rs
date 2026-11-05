@@ -1,5 +1,5 @@
 use super::{
-    timer::TimerStatus,
+    timer::{AutoAdvance, TimerStatus},
     types::{TimerDto, TimerState, TimerUpdatedEvent},
 };
 use crate::features::audio::{audio, types::SoundId};
@@ -97,7 +97,8 @@ fn run_timer_loop(app: AppHandle, stop_flag: Arc<AtomicBool>) {
             continue;
         }
 
-        let was_in_overtime = timer.overtime_seconds > 0;
+        let previous_overtime = timer.overtime_seconds;
+        let was_in_overtime = previous_overtime > 0;
 
         // Count down or count overtime
         if timer.remaining_seconds > 0 {
@@ -106,20 +107,91 @@ fn run_timer_loop(app: AppHandle, stop_flag: Arc<AtomicBool>) {
             timer.overtime_seconds += 1;
         }
 
-        // Play tick sound each second (only at 1x speed; at higher speeds it would overlap)
+        let entered_overtime = !was_in_overtime && timer.overtime_seconds > 0;
+        let next_work_seconds = timer.next_work_seconds;
+        let session_id = timer.active_session_id();
+        let settings = app.state::<AppSettingsState>().lock().unwrap().clone();
+        let action = timer.auto_advance(&settings, previous_overtime);
+        let snapshot = TimerDto::from(&*timer);
+        drop(timer);
+
+        // Native tray updates can wait for the main thread, so release timer state first.
         if speed == 1 {
             audio::play(&app, SoundId::Tick);
         }
-
-        // Play complete sound when entering overtime
-        if !was_in_overtime && timer.overtime_seconds > 0 {
+        if entered_overtime {
             audio::play(&app, SoundId::Complete);
         }
-
-        let _ = TimerUpdatedEvent(TimerDto::from(&*timer)).emit(&app);
-
-        // Update tray with remaining time
+        let _ = TimerUpdatedEvent(snapshot.clone()).emit(&app);
         #[cfg(target_os = "macos")]
-        TrayState::set_timer(&app, Some(timer.remaining_seconds));
+        TrayState::set_timer(&app, Some(snapshot.remaining_seconds));
+
+        if stop_flag.load(Ordering::SeqCst) {
+            break;
+        }
+        if let Some(action) = action {
+            match action {
+                AutoAdvance::Pomodoro | AutoAdvance::ProgressiveWork => {
+                    let result = tauri::async_runtime::block_on(async {
+                        if action == AutoAdvance::Pomodoro {
+                            return super::commands::advance_pomodoro_timer(
+                                app.clone(),
+                                app.state(),
+                                app.state(),
+                                app.state(),
+                                app.state(),
+                                None,
+                            )
+                            .await;
+                        }
+                        return super::commands::advance_progressive_timer(
+                            app.clone(),
+                            app.state(),
+                            app.state(),
+                            app.state(),
+                            app.state(),
+                            super::commands::ProgressiveSessionType::Work,
+                            next_work_seconds,
+                            None,
+                            None,
+                        )
+                        .await;
+                    });
+                    if let Err(error) = result {
+                        eprintln!("[Timer] Automatic advance failed: {error}");
+                    } else {
+                        // Advancing starts a new runner with its own stop flag.
+                        break;
+                    }
+                }
+                _ => {
+                    let path = match action {
+                        AutoAdvance::PomodoroSetup => "/window/main/pomodoro/setup?advance=true",
+                        AutoAdvance::ProgressiveSetup => {
+                            "/window/main/progressive/setup?advance=true"
+                        }
+                        AutoAdvance::ProgressiveRating => "/window/main/progressive/rating",
+                        _ => unreachable!(),
+                    };
+                    let app_handle = app.clone();
+                    let _ = app.run_on_main_thread(move || {
+                        let state = app_handle.state::<TimerState>();
+                        let timer = state.lock().unwrap();
+                        if timer.active_session_id() != session_id
+                            || timer.status != TimerStatus::Running
+                            || timer.overtime_seconds == 0
+                        {
+                            return;
+                        }
+                        drop(timer);
+                        if let Err(error) =
+                            crate::app::presentation::show_timer_flow(&app_handle, path)
+                        {
+                            eprintln!("[Timer] Failed to show session flow: {error}");
+                        }
+                    });
+                }
+            }
+        }
     }
 }

@@ -8,7 +8,7 @@ use tauri::TitleBarStyle;
 
 // MARK: - Window
 
-/// All window types in the app.
+/// Standard application windows. The menu bar panel lives in `app::menubar`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Window {
     Main,
@@ -110,33 +110,8 @@ impl Window {
     /// Navigate an existing window to a specific path without changing visibility.
     pub fn navigate_to_path(&self, app: &AppHandle, path: &str) -> tauri::Result<()> {
         if let Some(window) = self.get(app) {
-            window.eval(&format!(
-                "window.__TAURI_ROUTER__?.navigate({{ href: '{}' }});",
-                path
-            ))?;
+            navigate(&window, path)?;
         }
-        return Ok(());
-    }
-
-    /// Bring all visible windows to the foreground.
-    /// If no windows are visible, shows the Main window.
-    pub fn focus_all_visible(app: &AppHandle) -> tauri::Result<()> {
-        let mut any_focused = false;
-
-        for window_type in [Self::Main, Self::Cat, Self::Settings, Self::Activity] {
-            if let Some(window) = window_type.get(app) {
-                if window.is_visible().unwrap_or(false) {
-                    let _ = window.set_focus();
-                    any_focused = true;
-                }
-            }
-        }
-
-        // If no windows were visible, show the main window
-        if !any_focused {
-            Self::Main.show(app)?;
-        }
-
         return Ok(());
     }
 
@@ -150,10 +125,7 @@ impl Window {
         if let Some(window) = self.get(app) {
             window.show()?;
             window.set_focus()?;
-            window.eval(&format!(
-                "window.__TAURI_ROUTER__?.navigate({{ href: '{}' }});",
-                path
-            ))?;
+            navigate(&window, path)?;
             return Ok(window);
         }
 
@@ -401,7 +373,7 @@ impl Window {
     /// Handle window close request.
     pub fn handle_close(label: &str, window: &tauri::Window, api: &CloseRequestApi) {
         // Main window hides instead of closing (can reopen from tray).
-        // Settings/Activity windows hide and show main window.
+        // Auxiliary windows hide without reopening another surface.
         match label {
             "main" => {
                 api.prevent_close();
@@ -410,11 +382,15 @@ impl Window {
             "settings" | "activity" => {
                 api.prevent_close();
                 let _ = window.hide();
-                let _ = Window::Main.show(window.app_handle());
             }
             "blocker" => {
                 api.prevent_close();
                 let _ = window.hide();
+            }
+            "menubar" => {
+                api.prevent_close();
+                #[cfg(target_os = "macos")]
+                super::menubar::hide(window.app_handle());
             }
             _ => {}
         }
@@ -438,4 +414,12 @@ impl Window {
 
         return Some(PhysicalPosition::new(x, y));
     }
+}
+
+/// Navigate now, or let the frontend consume the path when its router is ready.
+pub fn navigate(window: &WebviewWindow, path: &str) -> tauri::Result<()> {
+    let href = serde_json::to_string(path)?;
+    return window.eval(&format!(
+        "if (window.__TAURI_ROUTER__) {{ window.__TAURI_ROUTER__.navigate({{ href: {href} }}); }} else {{ window.__TAURI_PENDING_HREF__ = {href}; }}"
+    ));
 }

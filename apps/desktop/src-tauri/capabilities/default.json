@@ -2,7 +2,7 @@
 	"$schema": "../gen/schemas/desktop-schema.json",
 	"identifier": "default",
 	"description": "Capability for app windows",
-	"windows": ["main", "cat", "settings", "activity", "blocker"],
+	"windows": ["main", "cat", "settings", "activity", "blocker", "menubar"],
 	"permissions": [
 		"core:default",
 		"opener:default",

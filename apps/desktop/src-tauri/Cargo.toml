@@ -22,7 +22,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.7.2", features = [] }
 
 [dependencies]
-tauri = { version = "2.12.3", features = ["macos-private-api", "tray-icon"] }
+tauri = { version = "~2.12.3", features = ["macos-private-api", "tray-icon"] }
 tauri-plugin-opener = "2.7.1"
 tauri-plugin-os = "2.4.0"
 serde = { version = "1.0.229", features = ["derive"] }
@@ -50,6 +50,9 @@ mado = "0.0.21"
 focuscat-macos = { path = "../crates/macos" }
 nucleo-matcher = "0.3.1"
 rodio = "0.23.0"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+tauri-nspanel = "=2.1.1"
 
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
 tauri-plugin-updater = "2.13.3"
